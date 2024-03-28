@@ -4,6 +4,7 @@ from cProfile import Profile
 from pstats import SortKey, Stats
 from numpy import float128
 from numpy.typing import NDArray
+from math_helper import sum_arrays_in_list
 
 LEARNING_RATE = 0.01
 
@@ -68,10 +69,10 @@ class Network():
     layer_array: list[Layer]
     layer_count: int
     def __init__(self, *layers: Layer):
-        self.layer_array = list(layers)
         self.input = layers[0]
         self.output = layers[-1]
         self.layer_count = len(layers)
+        self.layer_array = list(layers)
         
         for i in range(len(layers) - 1):
             layers[i].next = layers[i + 1]
@@ -103,45 +104,48 @@ class Network():
         
         return (costs / len(self.output.neurons), derived_costs / len(self.output.neurons))
 
-    def back_prop(self, cost_deriv: float128):
-        nd = []
-        for l in self.layer_array:
-            if l.prev is None:
-                continue
-            nd.append(np.zeros((l.size, l.prev.size)))
-
-        layer_idx = self.layer_count - 1
+    def back_prop(self, cost_deriv: float128) -> list[NDArray[float128]]:
         curr = self.output
+
+        ls: list[NDArray[float128]] = []
         while curr.prev is not None:
+            ws_ns = np.zeros((curr.size, curr.prev.size), dtype=float128)
+
             for i, n in enumerate(curr.neurons):
-                for wi, w in enumerate(curr.neurons[i].ws):
+                for wi, _ in enumerate(curr.neurons[i].ws):
                     # print(f"set w from {curr.neurons[i].ws[wi]} to {w - LEARNING_RATE * n.w_effect_on_cost(wi, i, curr, cost_deriv)}")
-                    # curr.neurons[i].ws[wi] = w - LEARNING_RATE * n.w_effect_on_cost(wi, i, curr, cost_deriv)
-                    nd[layer_idx][i][wi] = n.w_effect_on_cost(wi, i, curr, cost_deriv)
+                   ws_ns[i][wi] = n.w_effect_on_cost(wi, i, curr, cost_deriv)
                     # curr.neurons[i].ws[wi] = random.random()
+            ls.append(ws_ns)
             curr = curr.prev
-            layer_idx -= 1 
-        return nd
+        return ls
 
     def train(self, epochs: int, train_set: list[tuple[NDArray[float128], NDArray[float128]]]):
-        nd = []
-        for l in self.layer_array:
-            if l.prev is None:
-                nd.append(None)
-                continue
-            nd.append(np.zeros((l.size, l.prev.size)))
-            
         for ep in range(epochs):
+            ws: list[NDArray[float128]] = []
+            for curr in self.layer_array.__reversed__():
+                if curr.prev is None:
+                    continue
+                ws.append(np.zeros((curr.size, curr.prev.size), dtype=float128))
+
+
             for ex in train_set:
                 cost, d_cost = self.feed_example(ex[0], ex[1])
                 print(f"{ep} cost: {cost}, out = {self.output.neurons[0].act}")
-                nd += self.back_prop(d_cost)
+                sum_arrays_in_list(ws, self.back_prop(d_cost))
                 # self.print()
-        for li, layer in enumerate(nd):
-            for ni, n in enumerate(layer):
-                for wi, w in enumerate(n):
-                    self.layer_array[li].neurons[ni].ws[wi] -= LEARNING_RATE * w
-        
+
+            for i, _ in enumerate(ws):
+                ws[i] /= len(train_set)
+
+            for li, l in enumerate(self.layer_array.__reversed__()):
+                if l.prev is None:
+                    continue
+                for ni, n in enumerate(l.neurons):
+                    for wi, w in enumerate(n.ws):
+                        self.layer_array[self.layer_count-li-1].neurons[ni].ws[wi] = w - LEARNING_RATE * ws[li][ni][wi]
+
+    
 
     def print(self):
         curr = self.input
@@ -207,8 +211,7 @@ n = Network(
 #         .print_stats()
 #     )
 
-
-n.train(40, train)
+n.train(150, train)
 
 n.feed_input(arr_from(1, 1, 2))
 print(f"out = {n.output.neurons[0].act}")
@@ -219,6 +222,6 @@ print()
 print()
 print()
 
-# n.feed_input(arr_from(10, 1, 2))
-# print(f"out = {n.output.neurons[0].act}")
-# print(f"out_w = {n.output.neurons[0].ws}")
+n.feed_input(arr_from(2, 1, 5))
+print(f"out = {n.output.neurons[0].act}")
+print(f"out_w = {n.output.neurons[0].ws}")
