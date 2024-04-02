@@ -4,20 +4,23 @@ from cProfile import Profile
 from pstats import SortKey, Stats
 from numpy import float128
 from numpy.typing import NDArray
-from math_helper import sum_arrays_in_list
+from math_helper import relu, relu_prime, sum_arrays_in_list
+import math_helper
 
-LEARNING_RATE = 0.01
+LEARNING_RATE = 0.001
 
 class Neuron():
-    act: float
+    act: float128
     ws: NDArray[float128]
-    bias: float128
-    def __init__(self, activation: float, weights: NDArray[float128]):
+    z_sum: float128
+    def __init__(self, activation: float128, weights: NDArray[float128]):
         self.act = activation
+        self.z_sum = relu_prime(activation)
         self.ws = weights 
 
     def calculate(self, previous_layer: 'Layer'):
-        self.act = sum(n.act * self.ws[i] for i, n in enumerate(previous_layer.neurons))
+         self.z_sum = float128(sum(n.act * self.ws[i] for i, n in enumerate(previous_layer.neurons)))
+         self.act = relu(self.z_sum)
 
     def all_ws_foward(self, own_idx: int, own_layer: 'Layer') -> float:
         if own_layer.next is None:
@@ -32,12 +35,12 @@ class Neuron():
         if layer.next is None:
             if layer.prev is None:
                 raise Exception("Must have different input and output layers")
-            return layer.prev.neurons[w_idx].act * cost_deriv
+            return relu_prime(layer.prev.neurons[w_idx].z_sum) * cost_deriv
 
         if layer.prev is None:
             raise Exception("should not use input layer weights")
         
-        return layer.prev.neurons[w_idx].act *  sum([n.all_ws_foward(own_idx, layer.next) for n in layer.next.neurons]) * cost_deriv
+        return relu_prime(layer.prev.neurons[w_idx].z_sum) * sum([n.all_ws_foward(own_idx, layer.next) for n in layer.next.neurons]) * cost_deriv
 
 
 class Layer():
@@ -52,7 +55,7 @@ class Layer():
         self.prev = None
         n: list[Neuron] = []
         for i in range (size):
-            n.append(Neuron(0, weights[i]))
+            n.append(Neuron(float128(0), weights[i]))
         self.neurons = n
     def calculate(self, prev_layer: 'Layer'):
         for n in self.neurons:
@@ -112,9 +115,10 @@ class Network():
             ws_ns = np.zeros((curr.size, curr.prev.size), dtype=float128)
 
             for i, n in enumerate(curr.neurons):
+                der_sigmoid = n.act * (1 - n.act)
                 for wi, _ in enumerate(curr.neurons[i].ws):
                     # print(f"set w from {curr.neurons[i].ws[wi]} to {w - LEARNING_RATE * n.w_effect_on_cost(wi, i, curr, cost_deriv)}")
-                   ws_ns[i][wi] = n.w_effect_on_cost(wi, i, curr, cost_deriv)
+                   ws_ns[i][wi] = n.w_effect_on_cost(wi, i, curr, cost_deriv) 
                     # curr.neurons[i].ws[wi] = random.random()
             ls.append(ws_ns)
             curr = curr.prev
@@ -131,7 +135,7 @@ class Network():
 
             for ex in train_set:
                 cost, d_cost = self.feed_example(ex[0], ex[1])
-                print(f"{ep} cost: {cost}, out = {self.output.neurons[0].act}")
+                # print(f"{ep} cost: {cost}, out = {self.output.neurons[0].act}")
                 sum_arrays_in_list(ws, self.back_prop(d_cost))
                 # self.print()
 
@@ -153,67 +157,15 @@ class Network():
             curr.print()
             curr = curr.next
 
-def arr_from(*l: float) -> NDArray[float128]:
-    a = NDArray(len(l))
-    for i, e in enumerate(l):
-        a[i] = e
-    return a
-
-train = [
-    (arr_from(1, 1, 2), arr_from(3)),
-    # (arr_from(2, 0, 1), arr_from(1)),
-    (arr_from(2, 1, 5), arr_from(7)),
-    # (arr_from(3, 1, 3), arr_from(6)),
-    # (arr_from(4, 0, 2), arr_from(2)),
-    # (arr_from(5, 1, 4), arr_from(9)),
-    # (arr_from(6, 0, 2), arr_from(4)),
-    # (arr_from(3, 1, 2), arr_from(5)),
-    # (arr_from(7, 0, 3), arr_from(4)),
-    # (arr_from(4, 1, 5), arr_from(9)),
-    # (arr_from(8, 0, 1), arr_from(7)),
-    # (arr_from(2, 1, 0), arr_from(2)),
-    # (arr_from(6, 1, 1), arr_from(8)),
-    # (arr_from(9, 0, 4), arr_from(5)),
-    # (arr_from(3, 0, 1), arr_from(2)),
-    # (arr_from(5, 1, 3), arr_from(8)),
-    # (arr_from(7, 1, 2), arr_from(9)),
-    # (arr_from(4, 1, 0), arr_from(4)),
-    # (arr_from(5, 0, 2), arr_from(3)),
-    # (arr_from(6, 1, 4), arr_from(11)),
-    # (arr_from(8, 0, 3), arr_from(5)),
-    # (arr_from(9, 1, 0), arr_from(9)),
-    # (arr_from(3, 0, 2), arr_from(1)),
-    # (arr_from(7, 1, 3), arr_from(10)),
-    # (arr_from(1, 1, 1), arr_from(2)),
-    # (arr_from(2, 0, 0), arr_from(2)),
-    # (arr_from(4, 1, 2), arr_from(6)),
-]
-
-
 n = Network(
         Layer(3, np.zeros((3, 1), dtype=float128)),
-        Layer(6, np.random.randn(6, 3).astype(float128)),
-        Layer(1, np.random.randn(1, 6).astype(float128)),
+        Layer(10, np.random.randn(10, 3).astype(float128)),
+        Layer(1, np.random.randn(1, 10).astype(float128)),
         )
 
+n.train(150, math_helper.training_data(75))
 
-# with Profile() as profile:
-#     print(f"out = {n.output.neurons[0].act}")
-#     print(f"out_w = {n.output.neurons[0].ws}")
-#     n.train(20, train)
-#     n.feed_input(arr_from(1, 1, 2))
-#     print(f"out = {n.output.neurons[0].act}")
-#     print(f"out_w = {n.output.neurons[0].ws}")
-#     (
-#         Stats(profile)
-#         .strip_dirs()
-#         .sort_stats(SortKey.CALLS)
-#         .print_stats()
-#     )
-
-n.train(150, train)
-
-n.feed_input(arr_from(1, 1, 2))
+n.feed_input(math_helper.arr_from(1, 1, 2))
 print(f"out = {n.output.neurons[0].act}")
 print(f"out_w = {n.output.neurons[0].ws}")
 
@@ -222,6 +174,6 @@ print()
 print()
 print()
 
-n.feed_input(arr_from(2, 1, 5))
+n.feed_input(math_helper.arr_from(2, 1, 5))
 print(f"out = {n.output.neurons[0].act}")
 print(f"out_w = {n.output.neurons[0].ws}")
