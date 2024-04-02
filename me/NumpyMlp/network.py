@@ -7,7 +7,7 @@ from numpy.typing import NDArray
 from math_helper import relu, relu_prime, sum_arrays_in_list
 import math_helper
 
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.00015
 
 class Neuron():
     act: float128
@@ -163,7 +163,7 @@ n = Network(
         Layer(1, np.random.randn(1, 10).astype(float128)),
         )
 
-n.train(150, math_helper.training_data(75))
+n.train(1500, math_helper.training_data(10))
 
 n.feed_input(math_helper.arr_from(1, 1, 2))
 print(f"out = {n.output.neurons[0].act}")
