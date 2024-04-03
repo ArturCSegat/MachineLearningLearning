@@ -1,7 +1,4 @@
 import numpy as np
-import random
-from cProfile import Profile
-from pstats import SortKey, Stats
 from numpy import float128
 from numpy.typing import NDArray
 from math_helper import relu, relu_prime, sum_arrays_in_list
