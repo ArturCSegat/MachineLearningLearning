@@ -39,11 +39,9 @@ class Network(nn.Module):
     def __init__(self):
         super(Network, self).__init__()
         self.layer_stack = nn.Sequential(
-            nn.Linear(36, 100),
+            nn.Linear(36, 500),
             nn.ReLU(),
-            nn.Linear(100, 100),
-            nn.ReLU(),
-            nn.Linear(100, 3),
+            nn.Linear(500, 3),
         )
     def forward(self, x):
         return self.layer_stack(x)
@@ -58,7 +56,7 @@ print(f"example input: {inputs[0]}: {labels[0]}")
 dataset = TensorDataset(inputs, labels)
 dataloader = DataLoader(dataset, batch_size=128, shuffle=False)
 
-loss_fn = nn.BCEWithLogitsLoss()
+loss_fn = nn.CrossEntropyLoss()
 opt = optim.SGD(model.parameters(), lr=LEARN_R)
 
 model.train()
