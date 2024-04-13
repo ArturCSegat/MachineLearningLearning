@@ -7,12 +7,11 @@ import random
 
 tknizer = get_tokenizer("basic_english")
 
-CONTEXT_SIZE = 3
-EMBEDDING_DIM = 50
-DATA_SET_SIZE = 1000
+CONTEXT_SIZE = 5
+EMBEDDING_DIM = 35
+DATA_SET_SIZE = 500
+EPOCHS = 20
 
-# Tokenize each line separately
-tokenized_sentences = []
 text = "" 
 with open("/home/arturcs/Downloads/chat.txt", "r") as f:
     i = 0
@@ -21,7 +20,6 @@ with open("/home/arturcs/Downloads/chat.txt", "r") as f:
         i += 1
         text += line.strip()
         line = f.readline()
-# Combine all tokenized sentences into one list
 test_sentence = tknizer(text)
 print("tokenized done")
 
@@ -48,8 +46,8 @@ class NGramLanguageModeler(nn.Module):
     def __init__(self, vocab_size, embedding_dim, context_size):
         super(NGramLanguageModeler, self).__init__()
         self.embeddings = nn.Embedding(vocab_size, embedding_dim)
-        self.linear1 = nn.Linear(context_size * embedding_dim, 2048)
-        self.linear2 = nn.Linear(2048, vocab_size)
+        self.linear1 = nn.Linear(context_size * embedding_dim, 300)
+        self.linear2 = nn.Linear(300, vocab_size)
 
     def forward(self, inputs):
         embeds = self.embeddings(inputs).view((1, -1))
@@ -62,11 +60,11 @@ class NGramLanguageModeler(nn.Module):
 losses = []
 loss_function = nn.NLLLoss()
 model = NGramLanguageModeler(len(vocab), EMBEDDING_DIM, CONTEXT_SIZE)
-optimizer = optim.SGD(model.parameters(), lr=0.1)
+optimizer = optim.SGD(model.parameters(), lr=0.01)
 
-for epoch in range(20):
+for epoch in range(EPOCHS):
     total_loss = 0
-    random.shuffle(ngrams)  # Shuffle data before each epoch
+    random.shuffle(ngrams)
     for context, target in ngrams:
         context_idxs = torch.tensor([word_to_ix[w] for w in context], dtype=torch.long)
         model.zero_grad()
@@ -76,18 +74,27 @@ for epoch in range(20):
         optimizer.step()
         total_loss += loss.item()
     losses.append(total_loss)
+print("done training")
 
-print(losses)  # The loss decreased every iteration over the training data!
+print(f"losses: {losses}")
 print()
 print()
 print()
 
-inps = ["artur-cs", "oii", "amor"]
-idxs = torch.tensor([word_to_ix[w] for w in inps])
-model.zero_grad()
-outs = model(idxs)
-idx = torch.argmax(outs)
-
-p = list(word_to_ix.keys())[idx]
-print(p)
+while True:
+    entry = input(f"enter a {CONTEXT_SIZE} word sentence\n")
+    inps = entry.split(' ')
+    if inps.__len__() != CONTEXT_SIZE:
+        print("wrong lenght")
+        continue
+    try:
+        idxs = torch.tensor([word_to_ix[w] for w in inps])
+        model.zero_grad()
+        outs = model(idxs)
+        idx = torch.argmax(outs)
+        p = list(word_to_ix.keys())[idx]
+        print(p)
+    except Exception as e:
+        print(e)
+    
 
