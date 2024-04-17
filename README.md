@@ -2,5 +2,6 @@
 Learning Machine Learning
 
 
-#### me  = My attempts 
+#### me  = My implementations
 #### links.md = References
+#### refs = Reference implementations
