@@ -17,8 +17,8 @@ def get_feeling(out: torch.Tensor) -> str:
 CONTEXT_SIZE = 10
 EMBEDDING_DIM = 128
 EPOCHS = 5
-CBOW_LR = 0.025
-LEARN_R = 0.01
+CBOW_LR = 0.05
+LEARN_R = 0.025
 
 def get_train_set(ammount: int=99999):
     df = pd.read_csv("data.csv", sep=",", encoding = "cp1252")
