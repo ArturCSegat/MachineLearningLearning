@@ -1,12 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
 
-N = 3
+if sys.argv[1] is None:
+    print("please provide a polynomial degree")
+    print("usage: python3 main.py N")
+    exit()
+
+N = int(sys.argv[1])
 MAX_WEIGHT = 3
 MIN_WEIGHT = -MAX_WEIGHT
 LEN = (N+1)
-BATCH = 1_000
-ERROR = (MAX_WEIGHT + (-MIN_WEIGHT)) * ((BATCH/10) * N)
+BATCH = 100
+ERROR = (BATCH/MAX_WEIGHT) * ((N-1.8) * N)
 
 def predict(x: float, W) -> float:
     sum = 0
